@@ -807,7 +807,8 @@ body {
     }
 
     .app-container {
-        height: calc(100vh - 56px);
+        height: 100vh;
+        padding-bottom: 56px;
     }
 
     /* Header */
