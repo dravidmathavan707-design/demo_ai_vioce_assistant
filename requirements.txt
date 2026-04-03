@@ -1,10 +1,6 @@
-SpeechRecognition
-pyttsx3
 google-genai
-PyAudio
 python-dotenv
 wikipedia
 edge-tts
-pygame
 flask
 gunicorn

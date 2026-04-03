@@ -1,0 +1,6 @@
+# Local-only requirements (for terminal mode: python main.py)
+# Install with: pip install -r requirements-local.txt
+SpeechRecognition
+pyttsx3
+PyAudio
+pygame
