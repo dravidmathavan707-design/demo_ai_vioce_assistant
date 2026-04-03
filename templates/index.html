@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Voice Assistant</title>
+    <meta name="description" content="AI-powered voice assistant with natural speech and Gemini AI">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <!-- Animated background -->
+    <div class="bg-orbs">
+        <div class="orb orb-1"></div>
+        <div class="orb orb-2"></div>
+        <div class="orb orb-3"></div>
+    </div>
+
+    <div class="layout-wrapper">
+        <!-- Sidebar -->
+        <nav class="sidebar">
+            <div class="sidebar-top">
+                <button class="sidebar-btn active" id="homeBtn" onclick="goHome()" title="Home">
+                    <span class="material-icons-round">home</span>
+                    <span class="sidebar-label">Home</span>
+                </button>
+                <button class="sidebar-btn" onclick="newChat()" title="New Chat">
+                    <span class="material-icons-round">add_comment</span>
+                    <span class="sidebar-label">New Chat</span>
+                </button>
+                <button class="sidebar-btn" onclick="toggleHistory()" title="History">
+                    <span class="material-icons-round">history</span>
+                    <span class="sidebar-label">History</span>
+                </button>
+            </div>
+            <div class="sidebar-bottom">
+                <button class="sidebar-btn" onclick="toggleSettings()" title="Settings">
+                    <span class="material-icons-round">settings</span>
+                    <span class="sidebar-label">Settings</span>
+                </button>
+            </div>
+        </nav>
+
+        <div class="app-container">
+            <!-- Header -->
+            <header class="header">
+                <div class="header-left">
+                    <span class="material-icons-round logo-icon">smart_toy</span>
+                    <h1>AI Voice Assistant</h1>
+                </div>
+                <div class="header-right">
+                    <div class="voice-toggle" id="voiceToggle">
+                        <span class="toggle-label" id="voiceLabel">👩 Girl</span>
+                        <div class="toggle-switch">
+                            <input type="checkbox" id="voiceSwitch">
+                            <label for="voiceSwitch" class="toggle-slider"></label>
+                        </div>
+                        <span class="toggle-label" id="voiceLabelBoy">👦 Boy</span>
+                    </div>
+                    <div class="status-dot" id="statusDot" title="Online"></div>
+                </div>
+            </header>
+
+            <!-- Chat Area -->
+            <div class="chat-area" id="chatArea">
+                <div class="welcome-message" id="welcomeMsg">
+                    <div class="welcome-icon">
+                        <span class="material-icons-round">waving_hand</span>
+                    </div>
+                    <h2>Hello! I'm your AI Assistant</h2>
+                    <p>Press the mic button and start talking, or type your message below.</p>
+                    <div class="quick-actions">
+                        <button class="quick-btn" onclick="sendQuick('What is the time?')">
+                            <span class="material-icons-round">schedule</span> Time
+                        </button>
+                        <button class="quick-btn" onclick="sendQuick('What is the date?')">
+                            <span class="material-icons-round">calendar_today</span> Date
+                        </button>
+                        <button class="quick-btn" onclick="sendQuick('Tell me a joke')">
+                            <span class="material-icons-round">sentiment_very_satisfied</span> Joke
+                        </button>
+                        <button class="quick-btn" onclick="sendQuick('Tell me a fun fact')">
+                            <span class="material-icons-round">lightbulb</span> Fun Fact
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Input Area -->
+            <div class="input-area">
+                <div class="mic-container">
+                    <button class="mic-btn" id="micBtn" onclick="toggleMic()">
+                        <span class="material-icons-round mic-icon" id="micIcon">mic</span>
+                        <div class="pulse-ring pulse-1"></div>
+                        <div class="pulse-ring pulse-2"></div>
+                        <div class="pulse-ring pulse-3"></div>
+                    </button>
+                    <span class="mic-status" id="micStatus">Tap to speak</span>
+                </div>
+                <div class="text-input-area">
+                    <input type="text" id="textInput" placeholder="Or type your message here..." 
+                           onkeypress="if(event.key === 'Enter') sendText()">
+                    <button class="send-btn" id="sendBtn" onclick="sendText()">
+                        <span class="material-icons-round">send</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
