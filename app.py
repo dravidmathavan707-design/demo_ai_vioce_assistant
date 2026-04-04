@@ -5,8 +5,27 @@ import asyncio
 import os
 import tempfile
 import datetime
+from dotenv import load_dotenv
+from pymongo import MongoClient
+
+load_dotenv()
 
 app = Flask(__name__)
+
+# Initialize MongoDB
+mongo_uri = os.getenv("MONGO_URI")
+if mongo_uri:
+    try:
+        client = MongoClient(mongo_uri)
+        db = client.voice_assistant_db
+        messages_collection = db.messages
+        print("Connected to MongoDB successfully!")
+    except Exception as e:
+        print(f"Failed to connect to MongoDB: {e}")
+        messages_collection = None
+else:
+    print("MONGO_URI not found in .env file.")
+    messages_collection = None
 
 # Voice settings
 VOICES = {
@@ -35,6 +54,18 @@ def chat():
         response = f"Today's date is {datetime.datetime.now().strftime('%B %d, %Y')}"
     else:
         response = get_ai_response(user_message)
+    
+    # Save to MongoDB
+    if messages_collection is not None:
+        try:
+            message_doc = {
+                "user_message": user_message,
+                "ai_response": response,
+                "timestamp": datetime.datetime.utcnow()
+            }
+            messages_collection.insert_one(message_doc)
+        except Exception as e:
+            print(f"Failed to save message to MongoDB: {e}")
     
     return jsonify({'response': response})
 

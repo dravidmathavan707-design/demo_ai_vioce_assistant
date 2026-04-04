@@ -4,3 +4,5 @@ SpeechRecognition
 pyttsx3
 PyAudio
 pygame
+pymongo
+dnspython

@@ -4,3 +4,5 @@ wikipedia
 edge-tts
 flask
 gunicorn
+pymongo
+dnspython
