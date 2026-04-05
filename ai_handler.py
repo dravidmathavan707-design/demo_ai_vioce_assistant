@@ -3,7 +3,6 @@ from google.genai import types
 import os
 import re
 import time
-from concurrent.futures import ThreadPoolExecutor, TimeoutError
 from dotenv import load_dotenv
 
 # Load API Keys
@@ -22,7 +21,7 @@ print(f"✅ Loaded {len(API_KEYS)} API key(s)")
 current_key_index = 0
 
 # Maximum time (seconds) to wait for each key before switching
-KEY_TIMEOUT = 3
+KEY_TIMEOUT = 3.0
 
 # System prompt to get short, voice-friendly responses
 SYSTEM_PROMPT = """You are a helpful voice assistant. 
@@ -41,21 +40,8 @@ def clean_for_speech(text):
     text = re.sub(r'\s+', ' ', text)       # Collapse whitespace
     return text.strip()
 
-def _call_gemini(key, prompt):
-    """Make a single Gemini API call (runs inside a thread for timeout)."""
-    client = genai.Client(api_key=key)
-    response = client.models.generate_content(
-        model='gemini-2.5-flash',
-        contents=prompt,
-        config=types.GenerateContentConfig(
-            system_instruction=SYSTEM_PROMPT,
-            max_output_tokens=150
-        )
-    )
-    return response.text
-
 def get_ai_response(prompt):
-    """Gets a response from Gemini AI, with 3s timeout per key and auto-switching."""
+    """Gets a response from Gemini AI, with native timeout per key and auto-switching."""
     global current_key_index
 
     if not API_KEYS:
@@ -72,24 +58,32 @@ def get_ai_response(prompt):
             print(f"🔑 Attempt {attempt + 1}/{total_keys} — Using API Key {key_num} (timeout: {KEY_TIMEOUT}s)...")
             start_time = time.time()
 
-            # Run the API call in a thread with a timeout
-            with ThreadPoolExecutor(max_workers=1) as executor:
-                future = executor.submit(_call_gemini, key, prompt)
-                result = future.result(timeout=KEY_TIMEOUT)
+            # Create client with NATIVE timeout to avoid threading issues in Flask/Gunicorn
+            client = genai.Client(api_key=key, http_options={'timeout': KEY_TIMEOUT})
+            
+            response = client.models.generate_content(
+                model='gemini-2.5-flash',
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    system_instruction=SYSTEM_PROMPT,
+                    max_output_tokens=150
+                )
+            )
 
             elapsed = round(time.time() - start_time, 2)
             print(f"✅ API Key {key_num} succeeded in {elapsed}s!")
-            return clean_for_speech(result)
-
-        except TimeoutError:
-            elapsed = round(time.time() - start_time, 2)
-            print(f"⏰ API Key {key_num} TIMED OUT after {elapsed}s!")
-            last_error = f"Key {key_num} timed out after {KEY_TIMEOUT}s"
+            return clean_for_speech(response.text)
 
         except Exception as e:
-            error_msg = str(e)
-            print(f"❌ API Key {key_num} FAILED: {error_msg}")
-            last_error = error_msg
+            elapsed = round(time.time() - start_time, 2)
+            error_msg = str(e).lower()
+            
+            if "timeout" in error_msg:
+                print(f"⏰ API Key {key_num} TIMED OUT after {elapsed}s!")
+                last_error = f"Key {key_num} timed out after {KEY_TIMEOUT}s"
+            else:
+                print(f"❌ API Key {key_num} FAILED: {str(e)}")
+                last_error = str(e)
 
         # Switch to next key
         old_key = current_key_index + 1
