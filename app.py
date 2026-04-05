@@ -86,6 +86,29 @@ def speak():
     asyncio.run(generate())
     return send_file(temp_file, mimetype='audio/mpeg')
 
+@app.route('/api/history', methods=['GET'])
+def get_history():
+    """Fetch chat history from MongoDB."""
+    if messages_collection is None:
+        return jsonify({'error': 'Database not connected', 'history': []}), 500
+        
+    try:
+        # Fetch last 50 messages, sorted by timestamp descending
+        cursor = messages_collection.find({}, {'_id': 0}).sort('timestamp', -1).limit(50)
+        history = list(cursor)
+        # Reverse to get chronological order
+        history.reverse()
+        
+        # Convert datetime to string for JSON serialization
+        for msg in history:
+            if 'timestamp' in msg and isinstance(msg['timestamp'], datetime.datetime):
+                msg['timestamp'] = msg['timestamp'].isoformat() + "Z"
+                
+        return jsonify({'history': history})
+    except Exception as e:
+        print(f"Failed to fetch history: {e}")
+        return jsonify({'error': 'Failed to fetch history', 'history': []}), 500
+
 @app.route('/api/toggle_voice', methods=['POST'])
 def toggle_voice():
     """Toggle between boy and girl voice."""

@@ -43,6 +43,7 @@ def get_ai_response(prompt):
 
     # Try each key starting from the current one
     attempts = len(API_KEYS)
+    last_error = None
     for _ in range(attempts):
         key = API_KEYS[current_key_index]
         try:
@@ -59,8 +60,9 @@ def get_ai_response(prompt):
             return clean_for_speech(response.text)
         except Exception as e:
             print(f"API Key {current_key_index + 1} failed: {e}")
+            last_error = str(e)
             # Switch to next key
             current_key_index = (current_key_index + 1) % len(API_KEYS)
             print(f"Switching to API Key {current_key_index + 1}...")
 
-    return "All API keys failed. Please check your keys in the .env file."
+    return f"API keys failed. The problem is: {last_error}"

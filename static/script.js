@@ -121,9 +121,11 @@ async function processMessage(message) {
 }
 
 // Add message bubble to chat
-function addMessage(text, sender) {
+function addMessage(text, sender, manualTime = null) {
     const chatArea = document.getElementById('chatArea');
-    const time = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    const time = manualTime 
+        ? new Date(manualTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) 
+        : new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
     
     const msgDiv = document.createElement('div');
     msgDiv.classList.add('message', sender);
@@ -266,10 +268,51 @@ function newChat() {
     if (welcomeMsg) welcomeMsg.style.display = 'none';
 }
 
-function toggleHistory() {
-    addMessage("Chat history feature coming soon!", 'ai');
+async function toggleHistory() {
     const welcomeMsg = document.getElementById('welcomeMsg');
     if (welcomeMsg) welcomeMsg.style.display = 'none';
+
+    // Update active sidebar button
+    document.querySelectorAll('.sidebar-btn').forEach(btn => btn.classList.remove('active'));
+    const historyBtn = document.getElementById('historyBtn');
+    if (historyBtn) historyBtn.classList.add('active');
+
+    const chatArea = document.getElementById('chatArea');
+    chatArea.innerHTML = '';
+    
+    showTyping(); // Use typing indicator as loading state
+
+    try {
+        const response = await fetch('/api/history');
+        const data = await response.json();
+        
+        chatArea.innerHTML = ''; // Clear loading state
+        
+        if (data.history && data.history.length > 0) {
+            const header = document.createElement('div');
+            header.style.textAlign = 'center';
+            header.style.color = 'rgba(255, 255, 255, 0.7)';
+            header.style.padding = '15px 0 25px 0';
+            header.style.fontSize = '0.95rem';
+            header.innerHTML = '<span class="material-icons-round" style="vertical-align: middle; font-size: 1.2rem; margin-right: 5px;">history</span> Past Conversations';
+            chatArea.appendChild(header);
+
+            data.history.forEach(msg => {
+                if (msg.user_message) {
+                    addMessage(msg.user_message, 'user', msg.timestamp);
+                }
+                if (msg.ai_response) {
+                    addMessage(msg.ai_response, 'ai', msg.timestamp);
+                }
+            });
+        } else {
+            addMessage("No chat history found. Start a new conversation!", 'ai');
+        }
+    } catch (error) {
+        chatArea.innerHTML = '';
+        addMessage("Failed to load chat history. Please try again.", 'ai');
+        console.error('History error:', error);
+    }
 }
 
 function toggleSettings() {
