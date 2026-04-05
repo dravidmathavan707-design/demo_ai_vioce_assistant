@@ -107,16 +107,24 @@ async function processMessage(message) {
             body: JSON.stringify({ message })
         });
 
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Server Error (${response.status}): ${errorText}`);
+        }
+
         const data = await response.json();
         removeTyping();
 
         if (data.response) {
             addMessage(data.response, 'ai');
             await speakResponse(data.response);
+        } else if (data.error) {
+            addMessage('Error: ' + data.error, 'ai');
         }
     } catch (error) {
         removeTyping();
-        addMessage('Sorry, something went wrong. Please try again.', 'ai');
+        console.error('Chat error:', error);
+        addMessage(`System Error: ${error.message}`, 'ai');
     }
 }
 

@@ -11,3 +11,5 @@ services:
         sync: false
       - key: GEMINI_API_KEY_3
         sync: false
+      - key: MONGO_URI
+        sync: false
