@@ -1,3 +1,4 @@
+import logging
 from google import genai
 from google.genai import types
 import json
@@ -9,6 +10,9 @@ import urllib.parse
 import urllib.request
 from dotenv import load_dotenv
 
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
 # Load API Keys
 load_dotenv()
 API_KEYS = [
@@ -19,7 +23,10 @@ API_KEYS = [
 # Filter out empty/placeholder keys
 API_KEYS = [k for k in API_KEYS if k and k != "YOUR_SECOND_API_KEY_HERE" and k != "YOUR_THIRD_API_KEY_HERE"]
 
-print(f"Loaded {len(API_KEYS)} API key(s)")
+if not API_KEYS:
+    logging.critical("FATAL: No API keys loaded. The application will not work. Please set GEMINI_API_KEY_1 etc. in your environment.")
+else:
+    logging.info(f"Loaded {len(API_KEYS)} API key(s)")
 
 # Track which key is currently active
 current_key_index = 0
