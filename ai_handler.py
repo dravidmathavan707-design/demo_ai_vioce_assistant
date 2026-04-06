@@ -1,8 +1,12 @@
 from google import genai
 from google.genai import types
+import json
 import os
 import re
 import time
+import urllib.error
+import urllib.parse
+import urllib.request
 from dotenv import load_dotenv
 
 # Load API Keys
@@ -29,6 +33,7 @@ MODEL_CANDIDATES_RAW = os.getenv("GEMINI_MODEL_CANDIDATES", "gemini-2.0-flash,ge
 MODEL_CANDIDATES = [m.strip() for m in MODEL_CANDIDATES_RAW.split(",") if m.strip()]
 if PRIMARY_MODEL not in MODEL_CANDIDATES:
     MODEL_CANDIDATES.insert(0, PRIMARY_MODEL)
+USE_REST_FALLBACK = os.getenv("GEMINI_USE_REST_FALLBACK", "1") == "1"
 
 # System prompt to get short, voice-friendly responses
 SYSTEM_PROMPT = """You are a helpful voice assistant. 
@@ -46,6 +51,50 @@ def clean_for_speech(text):
     text = re.sub(r'\n+', '. ', text)      # Newlines -> periods
     text = re.sub(r'\s+', ' ', text)       # Collapse whitespace
     return text.strip()
+
+
+def _generate_with_rest(api_key, model_name, prompt):
+    """Fallback path using Gemini REST API when SDK calls fail or time out."""
+    endpoint = (
+        f"https://generativelanguage.googleapis.com/v1beta/models/"
+        f"{urllib.parse.quote(model_name, safe='')}:generateContent?key={api_key}"
+    )
+
+    payload = {
+        "system_instruction": {
+            "parts": [{"text": SYSTEM_PROMPT}],
+        },
+        "contents": [
+            {
+                "parts": [{"text": prompt}],
+            }
+        ],
+        "generationConfig": {
+            "maxOutputTokens": 120,
+            "temperature": 0.6,
+        },
+    }
+
+    req = urllib.request.Request(
+        endpoint,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+
+    with urllib.request.urlopen(req, timeout=KEY_TIMEOUT) as response:
+        body = json.loads(response.read().decode("utf-8"))
+
+    candidates = body.get("candidates") or []
+    if not candidates:
+        raise RuntimeError(f"No candidates in Gemini REST response: {body}")
+
+    parts = (candidates[0].get("content") or {}).get("parts") or []
+    text_chunks = [p.get("text", "") for p in parts if p.get("text")]
+    text = " ".join(text_chunks).strip()
+    if not text:
+        raise RuntimeError(f"Empty text in Gemini REST response: {body}")
+    return text
 
 def get_ai_response(prompt):
     """Gets a response from Gemini AI with per-key retries and key rotation."""
@@ -88,7 +137,37 @@ def get_ai_response(prompt):
                         break
                     except Exception as model_error:
                         last_model_error = str(model_error)
-                        print(f"Model {model_name} failed for Key {key_num}: {last_model_error}")
+                        print(f"SDK model {model_name} failed for Key {key_num}: {last_model_error}")
+
+                        if USE_REST_FALLBACK:
+                            try:
+                                rest_text = _generate_with_rest(key, model_name, prompt)
+
+                                elapsed = round(time.time() - start_time, 2)
+                                print(
+                                    f"API Key {key_num} succeeded via REST fallback "
+                                    f"with model {model_name} in {elapsed}s"
+                                )
+                                return clean_for_speech(rest_text)
+                            except urllib.error.HTTPError as http_error:
+                                rest_body = ""
+                                try:
+                                    rest_body = http_error.read().decode("utf-8")
+                                except Exception:
+                                    rest_body = "<unreadable body>"
+                                last_model_error = (
+                                    f"REST HTTP {http_error.code} for {model_name}: {rest_body}"
+                                )
+                                print(
+                                    f"REST model {model_name} failed for Key {key_num}: "
+                                    f"{last_model_error}"
+                                )
+                            except Exception as rest_error:
+                                last_model_error = str(rest_error)
+                                print(
+                                    f"REST model {model_name} failed for Key {key_num}: "
+                                    f"{last_model_error}"
+                                )
 
                 if response is None:
                     raise RuntimeError(last_model_error or "All configured models failed")
