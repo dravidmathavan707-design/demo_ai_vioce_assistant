@@ -53,6 +53,41 @@ def clean_for_speech(text):
     return text.strip()
 
 
+def _is_quota_error(error_text):
+    lower = error_text.lower()
+    return (
+        "resource_exhausted" in lower
+        or "quota exceeded" in lower
+        or "rest http 429" in lower
+        or "exceeded your current quota" in lower
+    )
+
+
+def _is_model_not_found_error(error_text):
+    lower = error_text.lower()
+    return (
+        "rest http 404" in lower
+        or "is not found for api version" in lower
+        or "not supported for generatecontent" in lower
+    )
+
+
+def _extract_retry_seconds(error_text):
+    text = error_text.lower()
+
+    # Handle: "retryDelay": "35s"
+    m = re.search(r'retrydelay"\s*:\s*"(\d+)s"', text)
+    if m:
+        return int(m.group(1))
+
+    # Handle: "Please retry in 9.99s" or "retry in 9s"
+    m = re.search(r'retry(?:\s+in)?\s+(\d+(?:\.\d+)?)s', text)
+    if m:
+        return max(1, int(float(m.group(1))))
+
+    return None
+
+
 def _generate_with_rest(api_key, model_name, prompt):
     """Fallback path using Gemini REST API when SDK calls fail or time out."""
     endpoint = (
@@ -123,8 +158,9 @@ def get_ai_response(prompt):
 
                 response = None
                 last_model_error = None
+                active_models = list(MODEL_CANDIDATES)
 
-                for model_name in MODEL_CANDIDATES:
+                for model_name in active_models:
                     try:
                         response = client.models.generate_content(
                             model=model_name,
@@ -138,6 +174,19 @@ def get_ai_response(prompt):
                     except Exception as model_error:
                         last_model_error = str(model_error)
                         print(f"SDK model {model_name} failed for Key {key_num}: {last_model_error}")
+
+                        if _is_quota_error(last_model_error):
+                            retry_after = _extract_retry_seconds(last_model_error)
+                            if retry_after:
+                                return (
+                                    "Gemini API quota is exhausted right now. "
+                                    f"Please try again after about {retry_after} seconds."
+                                )
+                            return "Gemini API quota is exhausted right now. Please try again later."
+
+                        if _is_model_not_found_error(last_model_error):
+                            print(f"Skipping unsupported model: {model_name}")
+                            continue
 
                         if USE_REST_FALLBACK:
                             try:
@@ -162,6 +211,19 @@ def get_ai_response(prompt):
                                     f"REST model {model_name} failed for Key {key_num}: "
                                     f"{last_model_error}"
                                 )
+
+                                if _is_quota_error(last_model_error):
+                                    retry_after = _extract_retry_seconds(last_model_error)
+                                    if retry_after:
+                                        return (
+                                            "Gemini API quota is exhausted right now. "
+                                            f"Please try again after about {retry_after} seconds."
+                                        )
+                                    return "Gemini API quota is exhausted right now. Please try again later."
+
+                                if _is_model_not_found_error(last_model_error):
+                                    print(f"Skipping unsupported model in REST fallback: {model_name}")
+                                    continue
                             except Exception as rest_error:
                                 last_model_error = str(rest_error)
                                 print(
