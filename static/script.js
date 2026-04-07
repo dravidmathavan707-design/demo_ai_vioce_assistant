@@ -119,7 +119,9 @@ async function processMessage(message) {
             addMessage(data.response, 'ai');
             await speakResponse(data.response);
         } else if (data.error) {
-            addMessage('Error: ' + data.error, 'ai');
+            addMessage(data.error, 'ai');
+        } else {
+            addMessage('Something went wrong. Please try again.', 'ai');
         }
     } catch (error) {
         removeTyping();
@@ -191,6 +193,17 @@ async function speakResponse(text) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ text, voice: currentVoice })
         });
+
+        if (!response.ok) {
+            let detail = `HTTP ${response.status}`;
+            try {
+                const err = await response.json();
+                if (err.error) detail = err.error;
+            } catch (_) { /* ignore */ }
+            console.error('Speak API failed:', detail);
+            updateMicStatus('Tap to speak');
+            return;
+        }
 
         const audioBlob = await response.blob();
         const audioUrl = URL.createObjectURL(audioBlob);

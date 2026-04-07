@@ -24,3 +24,6 @@ Thumbs.db
 
 # Temp files
 *.mp3
+
+# Local logs
+*.log
